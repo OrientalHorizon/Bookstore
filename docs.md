@@ -74,4 +74,200 @@ Written by OrientalHorizon/马逸飞
 
 ### 实现算法
 
-每一个账户和每一本书的信息都顺序存储在相应的主文件中；块状链表用于将相应信息索引到主文件中的位置。
+文件存储部分：每一个账户和每一本书的信息都顺序存储在相应的主文件中；块状链表用于将相应信息索引到主文件中的位置。
+
+### 实现细节
+
+- 内部存储应当全部使用 C 风格字符串，以保证信息所占空间固定。处理操作时可以使用 `std::string`。
+
+### 类成员与接口
+
+全局函数：
+
+```cpp
+int StringtoInt(std::string str); // 将字符串转化为正整数，如果转化不成功返回 -1
+double StringtoDouble(std::string str); // 将字符串转化为精确到百分位的正实数，不符合要求返回 -1
+```
+
+书店类：
+
+```cpp
+class Bookstore {
+    private:
+    BookSystem book_system;
+    AccSystem acc_system;
+    FinLogSystem fin_log;
+    LogSystem log_system;
+    
+    public:
+    Bookstore(); // 构造函数
+    void Init();
+    void Su(const std::string &ID, const std::string &pwd); // 登录账户
+    void Logout(); // 注销
+    void Register(const std::string &ID, const std::string &pwd, const std::string &name); // 注册
+    void Passwd(const std::string &ID, const std::string &cur_pwd, const std::string &pwd); // 修改密码
+    void Useradd(const std::string &ID, const std::string &pwd, const std::string &pri, const std::string &name); // 创建账户
+    void Delete(const std::string &ID); // 删除账户
+    
+    void Show(const std::string &idx); // 检索图书
+    void Buy(const std::string &isbn, const std::string &num); // 购买图书，其中 num 应当可以转为正整数
+    void Select(const std::string &isbn); // 选定图书
+    void Modify(const std::string &status); // 调整信息
+    void Import(const std::string &num, const std::string &tot); // 进货，其中 num 应当可以转为正整数，tot 应该可以转换为 double
+    
+    void AddFinLog();
+    void AddLog();
+    void ShowFinLog(const int &tot); // 财务日志
+    void ShowLog(); // 日志
+};
+```
+
+账户系统类：
+
+```cpp
+struct UserID_ {
+    char s[31];
+    UserID_();
+    UserID_(const std::string &s);
+    inline bool operator==(const UserID_ &y);
+    inline bool operator<(const UserID_ &y);
+};
+struct Acc_ {
+    UserID_ UserID;
+    char UserName[31], Password[31];
+    int Privilege; // {1, 3, 7}
+    Acc_();
+    Acc_(const std::string tmpID, const std::string tmpName,
+         const std::string tmpPwd, const std::string tmpPri);
+    void ChangePwd(std::string curPwd, std::string tmpPwd);
+};
+class AccSystem {
+    private:
+    int n, firstAddress, addrStep;
+    ULList<UserID_, int> AccList;
+    void InternalAdd(const Acc_ &tmpAcc); // 将信息存入文件系统中，并非注册用户
+    bool InternalExist(UserID_ tmpID);
+    void InternalFind(UserID_ tmpID);
+    void InternalDel(Acc_ tmpAcc);
+    
+    public:
+    AccSystem();
+    
+    void Su(const std::string &ID, const std::string &pwd); // 登录账户
+    void Register(const std::string &ID, const std::string &pwd, const std::string &name);
+    void Passwd(const std::string &ID, const std::string &cur_pwd, const std::string &pwd);
+    void Useradd(const std::string &ID, const std::string &pwd, const std::string &pri, const std::string &name);
+    void Delete(const std::string &ID);
+    Acc_ Find(const std::string &ID);
+    Acc_ Find(const UserID_ &ID);
+    void ChangePwd(std::string curPwd, std::string tmpPwd);
+};
+```
+
+图书系统类：
+
+```cpp
+struct ISBN_ {
+    char[21] ISBN;
+    ISBN_(const std::string &tmpISBN);
+    inline bool operator=(const ISBN_ &y);
+    inline bool operator<(const ISBN_ &y);
+}
+struct Name_ {
+    char[61] Name;
+    Name_(const std::string &tmpName);
+    inline bool operator=(const Name_ &y);
+    inline bool operator<(const Name_ &y);
+}
+struct Author_ {
+    char[61] Author;
+    Author_(const std::string &tmpAuthor);
+    inline bool operator=(const Author_ &y);
+    inline bool operator<(const Author_ &y);
+}
+struct Keyword_ {
+    char[61] Keyword;
+    Keyword_(const std::string &tmpKeyword);
+    inline bool operator=(const Keyword_ &y);
+    inline bool operator<(const Keyword_ &y);
+}
+
+struct Book_ {
+    ISBN_ Isbn;
+    Name_ Name;
+    Author_ Author;
+    int KWNum;
+    Keyword_[KWnum] Keyword;
+    int Num;
+    double Price;
+    Book();
+    Book(const std::string &tmpIsbn);
+    void Show();
+    void Import(int tmpNum);
+    void Buy(int tmpNum);
+    void ModifyISBN(const std::string &tmpIsbn);
+    void ModifyName(const std::string &tmpName);
+    void ModifyAuthor(const std::string &tmpAuthor);
+    void ModifyKeyword(const vector<std::string> &tmpKeyword);
+    void ModifyPrice(const double &tmpPrice);
+}
+
+class BookSystem {
+   	private:
+    int n, firstAddress, addrStep;
+    ULList<ISBN_, int> ISBNIndex;
+    ULList<Name_, int> NameIndex;
+    ULList<Author_, int> AuthorIndex;
+    ULList<Keyword_, int> KeywordIndex;
+    
+    public:
+    BookSystem();
+    void Show(const std::string &idx);
+    void Buy(const std::string &isbn, const std::string &num);
+    void Select(const std::string &isbn);
+    void Modify(const std::string &status);
+    void Import(const std::string &num, const std::string &tot);
+}
+```
+
+日志类：
+
+```cpp
+struct FinLog {
+    char Command[21];
+    Book_ Book;
+    int Num;
+    double Cost;
+    
+    FinLog();
+    FinLog(const std::string &tmpCmd, const Book &tmpBook, const int &tmpNum, const double &tmpCost);
+}
+
+class FinLogSystem {
+    private:
+    int n, firstAddress, addrStep;
+    
+    public:
+    FinLogSystem();
+    void addFinLog(const std::string &tmpCmd, const Book &tmpBook, const int &tmpNum, const double &tmpCost);
+    void ShowFinLog(int cnt);
+}
+
+struct Log {
+    char Command[121];
+    Acc_ Account;
+    
+    Log();
+    Log(const std::string &tmpCmd, const Acc_ &tmpAcc);
+}
+class LogSystem {
+    private:
+    int n, firstAddress, addrStep;
+    
+    public:
+    LogSystem();
+    void addLog(const std::string &tmpCmd, const Book &tmpBook, const int &tmpNum, const double &tmpCost);
+    void ShowLog();
+}
+```
+
