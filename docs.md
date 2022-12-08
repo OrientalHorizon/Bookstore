@@ -20,7 +20,9 @@ Written by OrientalHorizon/马逸飞
 
 #### 3. 图书相关
 
-图书所含的信息有：ISBN (Internal Strange Book Number)、书名、作者、关键词、购买数量、单价、交易总额。
+图书所含的信息有：ISBN (Internal Strange Book Number)、书名、作者、关键词、购买数量、单价。
+
+（细节：图书单价可能改变，后面的单价会覆盖前面的。）
 
 可以实现的操作：检索图书（顾客及以上）、购买图书、选择一本书更改信息、进货。
 
@@ -30,7 +32,7 @@ Written by OrientalHorizon/马逸飞
 
 #### 5. 错误处理
 
-[作业发布仓库](https://github.com/ACMClassCourse-2022/Bookstore-2022/blob/master/requirements.md) 中几乎每条指令均可能出现不合法操作，需要对这些不合法操作归类、判别并且输出对应报错。
+[作业发布仓库](https://github.com/ACMClassCourse-2022/Bookstore-2022/blob/master/requirements.md) 中几乎每条指令均可能出现不合法操作，我们需要严格判定合法操作，对不合法操作输出 `INVALID`。
 
 ### 主体逻辑
 
@@ -170,25 +172,25 @@ class AccSystem {
 struct ISBN_ {
     char[21] ISBN;
     ISBN_(const std::string &tmpISBN);
-    inline bool operator=(const ISBN_ &y);
+    ISBN_ &operator=(const ISBN_ &y);
     inline bool operator<(const ISBN_ &y);
 }
 struct Name_ {
     char[61] Name;
     Name_(const std::string &tmpName);
-    inline bool operator=(const Name_ &y);
+    ISBN_ &operator=(const Name_ &y);
     inline bool operator<(const Name_ &y);
 }
 struct Author_ {
     char[61] Author;
     Author_(const std::string &tmpAuthor);
-    inline bool operator=(const Author_ &y);
+    ISBN_ &operator=(const Author_ &y);
     inline bool operator<(const Author_ &y);
 }
 struct Keyword_ {
     char[61] Keyword;
     Keyword_(const std::string &tmpKeyword);
-    inline bool operator=(const Keyword_ &y);
+    ISBN_ &operator=(const Keyword_ &y);
     inline bool operator<(const Keyword_ &y);
 }
 
