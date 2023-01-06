@@ -84,85 +84,69 @@ Written by OrientalHorizon/马逸飞
 
 ### 类成员与接口
 
-全局函数：
+全局函数，用于检验输入的合法性：
 
 ```cpp
-int StringtoInt(std::string str); // 将字符串转化为正整数，如果转化不成功返回 -1
-double StringtoDouble(std::string str); // 将字符串转化为精确到百分位的正实数，不符合要求返回 -1
-```
-
-书店类：
-
-```cpp
-class Bookstore {
-    private:
-    BookSystem book_system;
-    AccSystem acc_system;
-    FinLogSystem fin_log;
-    LogSystem log_system;
-    
-    public:
-    Bookstore(); // 构造函数
-    void Init();
-    void Su(const std::string &ID, const std::string &pwd); // 登录账户
-    void Logout(); // 注销
-    void Register(const std::string &ID, const std::string &pwd, const std::string &name); // 注册
-    void Passwd(const std::string &ID, const std::string &cur_pwd, const std::string &pwd); // 修改密码
-    void Useradd(const std::string &ID, const std::string &pwd, const std::string &pri, const std::string &name); // 创建账户
-    void Delete(const std::string &ID); // 删除账户
-    
-    void Show(const std::string &idx); // 检索图书
-    void Buy(const std::string &isbn, const std::string &num); // 购买图书，其中 num 应当可以转为正整数
-    void Select(const std::string &isbn); // 选定图书
-    void Modify(const std::string &status); // 调整信息
-    void Import(const std::string &num, const std::string &tot); // 进货，其中 num 应当可以转为正整数，tot 应该可以转换为 double
-    
-    void AddFinLog();
-    void AddLog();
-    void ShowFinLog(const int &tot); // 财务日志
-    void ShowLog(); // 日志
-};
+bool CheckVisible(const std::string &s);
+bool CheckUserStr(const std::string &s); // 用户名之外的字符串
+bool CheckUsername(const std::string &s);
+bool CheckBookStr(const std::string &s); // ISBN 之外的字符串
+bool CheckIsbn(const std::string &s);
+bool CheckInt(const std::string &s);
+bool CheckDouble(const std::string &s);
 ```
 
 账户系统类：
 
 ```cpp
-struct UserID_ {
+struct UserID_ { // 用于表示 ID 的结构体
     char s[31];
     UserID_();
-    UserID_(const std::string &s);
-    inline bool operator==(const UserID_ &y);
-    inline bool operator<(const UserID_ &y);
+    UserID_(const std::string &str);
+    inline bool operator==(const UserID_ &y) const;
+    inline bool operator<(const UserID_ &y) const;
+    inline bool operator<=(const UserID_ &y) const;
 };
+
 struct Acc_ {
+    int Login_num = 0; // 登录几次
     UserID_ UserID;
     char UserName[31], Password[31];
     int Privilege; // {1, 3, 7}
     Acc_();
-    Acc_(const std::string tmpID, const std::string tmpName,
-         const std::string tmpPwd, const std::string tmpPri);
-    void ChangePwd(std::string curPwd, std::string tmpPwd);
+    Acc_(const std::string &tmpID, const std::string &tmpName,
+         const std::string &tmpPwd, const int &tmpPri);
+    void ChangePwd(const std::string &curPwd, const std::string &tmpPwd);
+    void ChangePwd(const std::string &tmpPwd);
 };
+
 class AccSystem {
     private:
-    int n, firstAddress, addrStep;
-    ULList<UserID_, int> AccList;
-    void InternalAdd(const Acc_ &tmpAcc); // 将信息存入文件系统中，并非注册用户
-    bool InternalExist(UserID_ tmpID);
-    void InternalFind(UserID_ tmpID);
-    void InternalDel(Acc_ tmpAcc);
+    int n; // 0-based
+    UnrolledLinkedList<UserID_> IDIndex;
+    std::fstream _file;
+    const std::string _filename = "account";
+    Acc_ cur_user;
+    bool InternalExist(const UserID_ &tmpID);
+    void InternalDel(Acc_ &tmpAcc, const int &pos);
     
     public:
+    std::stack<int> stk; // 登录栈，记录的是各账户在 account 文件中位置
+    std::stack<int> book_stk; // 书栈，与登录栈保持同步
     AccSystem();
-    
+    ~AccSystem();
+    int InternalFind(const UserID_ &tmpID, Acc_ &cur);
     void Su(const std::string &ID, const std::string &pwd); // 登录账户
-    void Register(const std::string &ID, const std::string &pwd, const std::string &name);
+    void Su(const std::string &ID);
+    void Logout();
+    void Register(const std::string &ID, const std::string &name, const std::string &pwd);
     void Passwd(const std::string &ID, const std::string &cur_pwd, const std::string &pwd);
-    void Useradd(const std::string &ID, const std::string &pwd, const std::string &pri, const std::string &name);
+    void Passwd(const std::string &ID, const std::string &pwd);
+    void Useradd(const std::string &ID, const std::string &name, const std::string &pwd, const int &pri);
+    void Init();
     void Delete(const std::string &ID);
-    Acc_ Find(const std::string &ID);
-    Acc_ Find(const UserID_ &ID);
-    void ChangePwd(std::string curPwd, std::string tmpPwd);
+    int curUser(Acc_ &x);
+    bool isUser();
 };
 ```
 
@@ -170,90 +154,88 @@ class AccSystem {
 
 ```cpp
 struct ISBN_ {
-    char[21] ISBN;
-    ISBN_(const std::string &tmpISBN);
-    ISBN_ &operator=(const ISBN_ &y);
-    inline bool operator<(const ISBN_ &y);
-}
-struct Name_ {
-    char[61] Name;
-    Name_(const std::string &tmpName);
-    ISBN_ &operator=(const Name_ &y);
-    inline bool operator<(const Name_ &y);
-}
-struct Author_ {
-    char[61] Author;
-    Author_(const std::string &tmpAuthor);
-    ISBN_ &operator=(const Author_ &y);
-    inline bool operator<(const Author_ &y);
-}
-struct Keyword_ {
-    char[61] Keyword;
-    Keyword_(const std::string &tmpKeyword);
-    ISBN_ &operator=(const Keyword_ &y);
-    inline bool operator<(const Keyword_ &y);
-}
+    char s[22];
+    ISBN_();
+    ISBN_(const std::string &str);
+    inline bool operator<(const ISBN_ &y) const;
+    inline bool operator==(const ISBN_ &y) const;
+    inline bool operator<=(const ISBN_ &y) const;
+};
+
+struct myString { // 用于表示除 ISBN 外其他字符串
+    char s[62];
+    myString();
+    myString(const std::string &str);
+    inline bool operator<(const myString &y) const;
+    inline bool operator==(const myString &y) const;
+    inline bool operator<=(const myString &y) const;
+};
 
 struct Book_ {
     ISBN_ Isbn;
-    Name_ Name;
-    Author_ Author;
-    int KWNum;
-    Keyword_[KWnum] Keyword;
-    int Num;
-    double Price;
-    Book();
-    Book(const std::string &tmpIsbn);
+    myString Name;
+    myString Author;
+    myString Keyword;
+    int Num = 0;
+    double Price = 0, tot = 0;
+    Book_();
+    Book_(const std::string &tmpIsbn);
+    Book_(const std::string &tmpIsbn, const std::string &tmpName,
+          const std::string &tmpAuthor, const std::string &tmpKwd, const double &tmpPrice);
     void Show();
     void Import(int tmpNum);
     void Buy(int tmpNum);
     void ModifyISBN(const std::string &tmpIsbn);
     void ModifyName(const std::string &tmpName);
     void ModifyAuthor(const std::string &tmpAuthor);
-    void ModifyKeyword(const vector<std::string> &tmpKeyword);
+    void ModifyKeyword(const std::string &tmpKeyword);
     void ModifyPrice(const double &tmpPrice);
-}
+};
 
 class BookSystem {
-   	private:
-    int n, firstAddress, addrStep;
-    ULList<ISBN_, int> ISBNIndex;
-    ULList<Name_, int> NameIndex;
-    ULList<Author_, int> AuthorIndex;
-    ULList<Keyword_, int> KeywordIndex;
+    private:
+    int n; // 0-based
+    UnrolledLinkedList<ISBN_> ISBNIndex;
+    UnrolledLinkedList<myString> NameIndex;
+    UnrolledLinkedList<myString> AuthorIndex;
+    UnrolledLinkedList<myString> KwdIndex;
+    std::fstream _file;
+    const std::string _filename = "book";
     
     public:
     BookSystem();
-    void Show(const std::string &idx);
-    void Buy(const std::string &isbn, const std::string &num);
+    ~BookSystem();
+    void Show(const Typ &typ, const std::string &str);
+    void Buy(const std::string &isbn, const int &num);
     void Select(const std::string &isbn);
     void Modify(const std::string &status);
-    void Import(const std::string &num, const std::string &tot);
-}
+    void Import(const int &num, const double &tot);
+    bool InternalCheckIsbn(const std::string &s);
+};
 ```
 
 日志类：
 
 ```cpp
-struct FinLog {
-    char Command[21];
-    Book_ Book;
-    int Num;
-    double Cost;
-    
-    FinLog();
-    FinLog(const std::string &tmpCmd, const Book &tmpBook, const int &tmpNum, const double &tmpCost);
-}
+struct opt_ {
+    double inc, outc;
+    opt_();
+    opt_(double income, double outcome);
+};
 
-class FinLogSystem {
+class FinLog {
     private:
-    int n, firstAddress, addrStep;
-    
+    int n = -1;
+    std::fstream _file;
+    const std::string _filename = "finlog";
+
     public:
-    FinLogSystem();
-    void addFinLog(const std::string &tmpCmd, const Book &tmpBook, const int &tmpNum, const double &tmpCost);
-    void ShowFinLog(int cnt);
-}
+    FinLog();
+    ~FinLog();
+    void Show(); // 统计全部收入支出
+    void Show(int num); // 统计后 num 项收入支出
+    void Add(double in, double out); // 记入
+};
 
 struct Log {
     char Command[121];
