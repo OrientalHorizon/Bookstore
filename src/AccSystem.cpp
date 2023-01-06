@@ -1,15 +1,5 @@
-#ifndef ACCOUNT_SYSTEM
-#define ACCOUNT_SYSTEM
-#include "UnrolledLinkedList.h"
-#include "utils.h"
+#include "AccSystem.h"
 
-struct UserID_ {
-    char s[31];
-    UserID_();
-    UserID_(const std::string &str);
-    inline bool operator==(const UserID_ &y) const;
-    inline bool operator<(const UserID_ &y) const;
-};
 UserID_::UserID_() = default;
 UserID_::UserID_(const std::string &str) {
     strcpy(s, str.c_str());
@@ -20,22 +10,14 @@ inline bool UserID_::operator==(const UserID_ &y) const {
 inline bool UserID_::operator<(const UserID_ &y) const {
     return strcmp(s, y.s) < 0;
 }
+inline bool UserID_::operator<=(const UserID_ &y) const {
+    return ((*this) < y) || ((*this) == y);
+}
 std::ostream& operator<<(std::ostream &x, const UserID_ &y) {
     x << y.s;
     return x;
 }
 
-struct Acc_ {
-    int Login_num = 0; // 登录几次
-    UserID_ UserID;
-    char UserName[31], Password[31];
-    int Privilege; // {1, 3, 7}
-    Acc_();
-    Acc_(const std::string &tmpID, const std::string &tmpName,
-         const std::string &tmpPwd, const int &tmpPri);
-    void ChangePwd(const std::string &curPwd, const std::string &tmpPwd);
-    void ChangePwd(const std::string &tmpPwd);
-};
 Acc_::Acc_() = default;
 Acc_::Acc_(const std::string &tmpID, const std::string &tmpName,
            const std::string &tmpPwd, const int &tmpPri) : UserID(tmpID) {
@@ -45,42 +27,13 @@ Acc_::Acc_(const std::string &tmpID, const std::string &tmpName,
     Login_num = 0;
 }
 void Acc_::ChangePwd(const std::string &curPwd, const std::string &tmpPwd) {
-    if ((std::string)Password != curPwd) throw error();
+    if ((std::string)Password != curPwd) throw error("Incorrect pwd");
     strcpy(Password, tmpPwd.c_str());
 }
 void Acc_::ChangePwd(const std::string &tmpPwd) {
     strcpy(Password, tmpPwd.c_str());
 }
 
-class AccSystem {
-    private:
-    int n; // 0-based
-    UnrolledLinkedList<UserID_> IDIndex;
-    std::fstream _file;
-    const std::string _filename = "account";
-    Acc_ cur_user;
-    bool InternalExist(const UserID_ &tmpID);
-    int InternalFind(const UserID_ &tmpID, Acc_ &cur);
-    void InternalDel(Acc_ &tmpAcc, const int &pos);
-    
-    public:
-    std::stack<int> stk; // 登录栈，记录的是各账户在 account 文件中位置
-    // 位置！！！！！！
-    std::stack<int> book_stk;
-    AccSystem();
-    ~AccSystem();
-    void Su(const std::string &ID, const std::string &pwd); // 登录账户
-    void Su(const std::string &ID);
-    void Logout();
-    void Register(const std::string &ID, const std::string &name, const std::string &pwd);
-    void Passwd(const std::string &ID, const std::string &cur_pwd, const std::string &pwd);
-    void Passwd(const std::string &ID, const std::string &pwd);
-    void Useradd(const std::string &ID, const std::string &name, const std::string &pwd, const int &pri);
-    void Init();
-    void Delete(const std::string &ID);
-    int curUser(Acc_ &x);
-    bool isUser();
-} acc_system;
 AccSystem::AccSystem() : IDIndex("account-index") {
     _file.open(_filename);
     if (!_file) {
@@ -112,18 +65,18 @@ AccSystem::~AccSystem() {
     }
 }
 int AccSystem::InternalFind(const UserID_ &tmpID, Acc_ &cur) {
-    static std::vector<int> vec;
-    vec.clear();
+    std::vector<int> vec;
     IDIndex.find(tmpID, vec);
     if (vec.empty()) return -1;
     _file.seekg(4 + vec[0] * sizeof(Acc_));
     _file.read(reinterpret_cast<char *>(&cur), sizeof(cur));
+    // std::cout << cur.UserID << std::endl;
     return vec[0];
 }
 bool AccSystem::InternalExist(const UserID_ &tmpID) {
-    static std::vector<int> vec;
-    vec.clear();
+    std::vector<int> vec;
     IDIndex.find(tmpID, vec);
+    // if (vec.size()) std::cout << vec[0] << std::endl;
     return !(vec.empty());
 }
 void AccSystem::Su(const std::string &ID, const std::string &pwd) {
@@ -134,10 +87,14 @@ void AccSystem::Su(const std::string &ID, const std::string &pwd) {
         // 没找到用户
         throw error("No user matched");
     }
+    // std::cout << cur.UserID << "\t" << cur.UserName << "\t";
     if (strcmp(cur.Password, pwd.c_str())) {
         // 密码不同
+        // std::cout << cur.Password << "\t" << pwd.c_str() << std::endl;
+        // std::cout << "wrong pwd" << std::endl;
         throw error("Wrong Password");
     }
+    // std::cout << "yes" << std::endl;
     stk.push(tmp_int);
     book_stk.push(-1);
     cur_user = cur;
@@ -183,7 +140,8 @@ void AccSystem::Useradd(const std::string &ID, const std::string &name, const st
     if (stk.empty()) throw error("Not logged in");
     if (cur_user.Privilege < 3) throw error("No right to add user");
     if (pri >= cur_user.Privilege) throw error("No right to add user");
-    static UserID_ tmp_id(ID);
+    UserID_ tmp_id(ID);
+    // std::cout << tmp_id << std::endl;
     if (InternalExist(tmp_id)) {
         throw error("Repeated User ID");
     }
@@ -191,10 +149,11 @@ void AccSystem::Useradd(const std::string &ID, const std::string &name, const st
     ++n;
     _file.seekp(4 + n * sizeof(Acc_));
     _file.write(reinterpret_cast<char *>(&tmp_acc), sizeof(Acc_));
+    // std::cout << tmp_id << std::endl;
     IDIndex.insert(Element<UserID_>(tmp_id, n));
 }
 void AccSystem::Register(const std::string &ID, const std::string &name, const std::string &pwd) {
-    static UserID_ tmp_id(ID);
+    UserID_ tmp_id(ID);
     if (InternalExist(tmp_id)) {
         throw error("Repeated User ID");
     }
@@ -213,19 +172,20 @@ void AccSystem::Delete(const std::string &ID) {
     if (stk.empty()) throw error("Not logged in");
     if (cur_user.Privilege < 7) throw error("No right to delete user");
     static Acc_ tmpAcc;
-    static UserID_ tmpID(ID);
+    UserID_ tmpID(ID);
     int tmp_int = InternalFind(tmpID, tmpAcc);
-    if (tmp_int == -1) throw("No such user");
+    // std::cout << tmp_int << std::endl;
+    if (tmp_int == -1) throw error("No such user");
     if (tmpAcc.Login_num > 0) {
         // 正在登录
-        throw("This account is logged in");
+        throw error("This account is logged in");
     }
     InternalDel(tmpAcc, tmp_int);
 }
 void AccSystem::Passwd(const std::string &ID, const std::string &cur_pwd, const std::string &pwd) {
     if (stk.empty()) throw error("No user logged in");
     static Acc_ tmpAcc;
-    static UserID_ tmpID(ID);
+    UserID_ tmpID(ID);
     int tmp_int = InternalFind(tmpID, tmpAcc);
     if (tmp_int == -1) throw error("No such user");
     tmpAcc.ChangePwd(cur_pwd, pwd);
@@ -237,7 +197,7 @@ void AccSystem::Passwd(const std::string &ID, const std::string &pwd) {
     if (stk.empty()) throw error("No user logged in");
     if (cur_user.Privilege < 7) throw error("Missing current password");
     static Acc_ tmpAcc;
-    static UserID_ tmpID(ID);
+    UserID_ tmpID(ID);
     int tmp_int = InternalFind(tmpID, tmpAcc);
     if (tmp_int == -1) throw error("No such user");
     tmpAcc.ChangePwd(pwd);
@@ -260,7 +220,6 @@ void AccSystem::Init() {
     ++n;
     _file.seekp(4 + n * sizeof(Acc_));
     _file.write(reinterpret_cast<char *>(&tmp_acc), sizeof(Acc_));
+    // std::cout << tmp_id << std::endl;
     IDIndex.insert(Element<UserID_>(tmp_id, n));
 }
-
-#endif // ACCOUNT_SYSTEM

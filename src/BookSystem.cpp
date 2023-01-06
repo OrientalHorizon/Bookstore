@@ -1,17 +1,10 @@
-#ifndef BOOK_SYSTEM
-#define BOOK_SYSTEM
-#include "UnrolledLinkedList.h"
-#include "utils.h"
-#include "AccSystem.h"
+#include "BookSystem.h"
+extern AccSystem acc_system;
+extern FinLog fin_log;
 
-struct ISBN_ {
-    char s[22];
-    ISBN_();
-    ISBN_(const std::string &str);
-    inline bool operator<(const ISBN_ &y) const;
-    inline bool operator==(const ISBN_ &y) const;
-};
-ISBN_::ISBN_() = default;
+ISBN_::ISBN_() {
+    s[0] = '\0';
+}
 ISBN_::ISBN_(const std::string &str) {
     strcpy(s, str.c_str());
 }
@@ -21,19 +14,17 @@ inline bool ISBN_::operator==(const ISBN_ &y) const {
 inline bool ISBN_::operator<(const ISBN_ &y) const {
     return strcmp(s, y.s) < 0;
 }
+inline bool ISBN_::operator<=(const ISBN_ &y) const {
+    return ((*this) == y) || ((*this) < y);
+}
 std::ostream& operator<<(std::ostream &x, const ISBN_ &y) {
     x << y.s;
     return x;
 }
 
-struct myString {
-    char s[62];
-    myString();
-    myString(const std::string &str);
-    inline bool operator<(const myString &y) const;
-    inline bool operator==(const myString &y) const;
-};
-myString::myString() = default;
+myString::myString() {
+    s[0] = '\0';
+}
 myString::myString(const std::string &str) {
     strcpy(s, str.c_str());
 }
@@ -43,39 +34,22 @@ inline bool myString::operator<(const myString &y) const {
 inline bool myString::operator==(const myString &y) const {
     return (!strcmp(s, y.s));
 }
+inline bool myString::operator<=(const myString &y) const {
+    return ((*this) == y) || ((*this) < y);
+}
 std::ostream& operator<<(std::ostream &x, const myString &y) {
     x << y.s;
     return x;
 }
 
-struct Book_ {
-    ISBN_ Isbn;
-    myString Name;
-    myString Author;
-    myString Keyword;
-    int Num = 0;
-    double Price, tot;
-    Book_();
-    Book_(const std::string &tmpIsbn);
-    Book_(const std::string &tmpIsbn, const std::string &tmpName,
-          const std::string &tmpAuthor, const std::string &tmpKwd, const double &tmpPrice);
-    void Show();
-    void Import(int tmpNum);
-    void Buy(int tmpNum);
-    void ModifyISBN(const std::string &tmpIsbn);
-    void ModifyName(const std::string &tmpName);
-    void ModifyAuthor(const std::string &tmpAuthor);
-    void ModifyKeyword(const std::string &tmpKeyword);
-    void ModifyPrice(const double &tmpPrice);
-};
 Book_::Book_() = default;
-Book_::Book_(const std::string &tmpIsbn) : Isbn(tmpIsbn) {}
+Book_::Book_(const std::string &tmpIsbn) : Isbn(tmpIsbn), Name(), Author(), Keyword() {}
 Book_::Book_(const std::string &tmpIsbn, const std::string &tmpName,
              const std::string &tmpAuthor, const std::string &tmpKwd,
              const double &tmpPrice) : Isbn(tmpIsbn), Name(tmpName), Author(tmpAuthor),
              Keyword(tmpKwd), Price(tmpPrice) {}
 void Book_::Show() {
-    std::cout << Isbn << "\t" << Name << "\t" << Author << "\t" << Keyword << "\t" << Price << std::endl;
+    std::cout << std::fixed << std::setprecision(2) << Isbn << "\t" << Name << "\t" << Author << "\t" << Keyword << "\t" << Price << "\t" << Num << std::endl;
 }
 void Book_::Import(int tmpNum) {
     if (tmpNum <= 0) throw error();
@@ -84,13 +58,14 @@ void Book_::Import(int tmpNum) {
 }
 void Book_::Buy(int tmpNum) {
     if (!tmpNum) {
-        throw("Invalid buy");
+        throw error("Invalid buy");
     }
     if (tmpNum > Num) {
-        throw("No enough books");
+        throw error("No enough books");
     }
     Num -= tmpNum;
     std::cout << std::fixed << std::setprecision(2) << Price * tmpNum << std::endl;
+    fin_log.Add(Price * tmpNum, 0.0);
 }
 void Book_::ModifyISBN(const std::string &tmpIsbn) {
     if (!strcmp(Isbn.s, tmpIsbn.c_str())) {
@@ -114,26 +89,6 @@ void Book_::ModifyKeyword(const std::string &tmpKeyword) {
 inline bool book_cmp(const Book_ &p, const Book_ &q) {
     return p.Isbn < q.Isbn;
 }
-
-class BookSystem {
-    private:
-    int n; // 0-based
-    UnrolledLinkedList<ISBN_> ISBNIndex;
-    UnrolledLinkedList<myString> NameIndex;
-    UnrolledLinkedList<myString> AuthorIndex;
-    UnrolledLinkedList<myString> KwdIndex;
-    std::fstream _file;
-    const std::string _filename = "book";
-    
-    public:
-    BookSystem();
-    ~BookSystem();
-    void Show(const Typ &typ, const std::string &str);
-    void Buy(const std::string &isbn, const int &num);
-    void Select(const std::string &isbn);
-    void Modify(const std::string &status);
-    void Import(const int &num, const double &tot);
-} book_system;
 
 BookSystem::BookSystem() : ISBNIndex("isbn-index"), NameIndex("name-index"), AuthorIndex("author-index"), KwdIndex("keyword-index") {
     _file.open(_filename);
@@ -168,17 +123,27 @@ void BookSystem::Show(const Typ &typ, const std::string &str) {
     vec.clear();
     static std::vector<Book_> vec1;
     vec1.clear();
-    ISBNIndex.findall(vec);
-    static Book_ cur_book;
+    // ISBNIndex.findall(vec);
+    Book_ cur_book;
     switch (typ) {
-    case Any: {
+    case All: {
         ISBNIndex.findall(vec);
+        for (unsigned i = 0; i < vec.size(); ++i) {
+            _file.seekg(4 + vec[i] * sizeof(Book_));
+            _file.read(reinterpret_cast<char *>(&cur_book), sizeof(Book_));
+            vec1.push_back(cur_book);
+        }
     }
     break;
 
     case ISBN: {
         ISBN_ tmp_isbn(str);
         ISBNIndex.find(tmp_isbn, vec);
+        for (unsigned i = 0; i < vec.size(); ++i) {
+            _file.seekg(4 + vec[i] * sizeof(Book_));
+            _file.read(reinterpret_cast<char *>(&cur_book), sizeof(Book_));
+            vec1.push_back(cur_book);
+        }
     }
     break;
 
@@ -187,7 +152,7 @@ void BookSystem::Show(const Typ &typ, const std::string &str) {
         NameIndex.find(str, vec);
         for (unsigned i = 0; i < vec.size(); ++i) {
             _file.seekg(4 + vec[i] * sizeof(Book_));
-            _file.read(reinterpret_cast<char *>(&cur_book.Isbn), sizeof(ISBN_));
+            _file.read(reinterpret_cast<char *>(&cur_book), sizeof(Book_));
             vec1.push_back(cur_book);
         }
         std::sort(vec1.begin(), vec1.end(), book_cmp);
@@ -199,7 +164,7 @@ void BookSystem::Show(const Typ &typ, const std::string &str) {
         AuthorIndex.find(str, vec);
         for (unsigned i = 0; i < vec.size(); ++i) {
             _file.seekg(4 + vec[i] * sizeof(Book_));
-            _file.read(reinterpret_cast<char *>(&cur_book.Isbn), sizeof(ISBN_));
+            _file.read(reinterpret_cast<char *>(&cur_book), sizeof(Book_));
             vec1.push_back(cur_book);
         }
         std::sort(vec1.begin(), vec1.end(), book_cmp);
@@ -211,7 +176,7 @@ void BookSystem::Show(const Typ &typ, const std::string &str) {
         KwdIndex.find(str, vec);
         for (unsigned i = 0; i < vec.size(); ++i) {
             _file.seekg(4 + vec[i] * sizeof(Book_));
-            _file.read(reinterpret_cast<char *>(&cur_book.Isbn), sizeof(ISBN_));
+            _file.read(reinterpret_cast<char *>(&cur_book), sizeof(Book_));
             vec1.push_back(cur_book);
         }
         std::sort(vec1.begin(), vec1.end(), book_cmp);
@@ -254,7 +219,7 @@ void BookSystem::Select(const std::string &isbn) {
     if (tmp_int == -1 || cur_user.Privilege < 3) {
         throw error();
     }
-    static std::vector<int> vec;
+    std::vector<int> vec;
     ISBN_ tmp_isbn(isbn);
     ISBNIndex.find(tmp_isbn, vec);
     if (vec.empty()) {
@@ -278,7 +243,7 @@ void BookSystem::Import(const int &num, const double &tot) {
     if (tmp_int == -1 || cur_user.Privilege < 3) {
         throw error();
     }
-    // 如果没有选中的书？
+    // 如果没有选中的书
     if (acc_system.book_stk.empty() || acc_system.book_stk.top() == -1) {
         throw error();
     }
@@ -292,6 +257,26 @@ void BookSystem::Import(const int &num, const double &tot) {
     tmp_book.Num += num, tmp_book.tot += tot;
     _file.seekp(4 + book_id * sizeof(Book_));
     _file.write(reinterpret_cast<char *>(&tmp_book), sizeof(tmp_book));
+    fin_log.Add(0, tot);
+}
+bool BookSystem::InternalCheckIsbn(const std::string &s) {
+    if (acc_system.book_stk.empty() || acc_system.book_stk.top() == -1) {
+        return false;
+    }
+    static Book_ tmp_book;
+    int book_id = acc_system.book_stk.top();
+    _file.seekg(4 + book_id * sizeof(Book_));
+    _file.read(reinterpret_cast<char *>(&tmp_book), sizeof(tmp_book));
+    ISBN_ tmp(s);
+    // std::cout << tmp_book.Isbn << " " << tmp << std::endl;
+    if (tmp_book.Isbn == tmp) {
+        return false;
+    }
+    static std::vector<int> vec;
+    vec.clear();
+    ISBNIndex.find(tmp, vec);
+    if (!vec.empty()) return false;
+    return true;
 }
 void BookSystem::Modify(const std::string &status) {
     // Modify 规则：由 main 把字符串拆开，这里接受单个的
@@ -301,7 +286,7 @@ void BookSystem::Modify(const std::string &status) {
     if (tmp_int == -1 || cur_user.Privilege < 3) {
         throw error();
     }
-    // 如果没有选中的书？
+    // 如果没有选中的书
     if (acc_system.book_stk.empty() || acc_system.book_stk.top() == -1) {
         throw error();
     }
@@ -312,6 +297,9 @@ void BookSystem::Modify(const std::string &status) {
     switch (status[1]) {
     case 'I': {
         // ISBN
+        if (status.substr(0, 6) != "-ISBN=") {
+            throw error("Invalid argument");
+        }
         std::string isbn = status.substr(6);
         ISBN_ tmp_isbn(isbn);
         ISBNIndex.del(Element<ISBN_>(tmp_book.Isbn, book_id));
@@ -322,17 +310,26 @@ void BookSystem::Modify(const std::string &status) {
 
     case 'n': {
         // name
+        if (status.substr(0, 6) != "-name=") {
+            throw error("Invalid argument");
+        }
         std::string name = status.substr(7);
         name.pop_back();
         myString mystr(name);
         NameIndex.del(Element<myString>(tmp_book.Name, book_id));
         tmp_book.ModifyName(name);
+        #ifdef DEBUG
+        std::cout << tmp_book.Name << std::endl;
+        #endif
         NameIndex.insert(Element<myString>(mystr, book_id));
     }
     break;
 
     case 'a': {
         // author
+        if (status.substr(0, 8) != "-author=") {
+            throw error("Invalid argument");
+        }
         std::string author = status.substr(9);
         author.pop_back();
         myString mystr(author);
@@ -343,16 +340,26 @@ void BookSystem::Modify(const std::string &status) {
     break;
 
     case 'p': {
+        if (status.substr(0, 7) != "-price=") {
+            throw error("Invalid argument");
+        }
         std::string str_price = status.substr(7);
-        double price = stod(str_price);
-        tmp_book.ModifyPrice(price);
+        try {
+            double price = std::stod(str_price);
+            tmp_book.ModifyPrice(price);
+        }
+        catch (std::exception &ex) {
+            throw error("double exception");
+        }
     }
     break;
 
     case 'k': {
-        // keyword!!!!!!!
         // 它也是用 | 分隔的多个 keyword
         std::set<std::string> set_string;
+        if (status.substr(0, 9) != "-keyword=") {
+            throw error("Invalid argument");
+        }
         std::string new_keywords = status.substr(10);
         new_keywords.pop_back();
         // 接着，我们挨个把原来的 keywords 拿出来删掉
@@ -376,6 +383,8 @@ void BookSystem::Modify(const std::string &status) {
         if (new_keywords.empty()) {
             throw error();
         }
+        if (new_keywords[0] == '|' || new_keywords[new_keywords.size() - 1] == '|')
+            throw error("keyword string error");
         keyword.clear();
         for (unsigned i = 0; i < new_keywords.size(); ++i) {
             if (new_keywords[i] == '|') {
@@ -384,6 +393,7 @@ void BookSystem::Modify(const std::string &status) {
                 }
                 set_string.insert(keyword);
                 KwdIndex.insert(Element<myString>(myString(keyword), book_id));
+                keyword.clear();
             }
             else {
                 keyword.push_back(new_keywords[i]);
@@ -407,5 +417,3 @@ void BookSystem::Modify(const std::string &status) {
     _file.seekp(4 + book_id * sizeof(Book_));
     _file.write(reinterpret_cast<char *>(&tmp_book), sizeof(tmp_book));
 }
-
-#endif // BOOK_SYSTEM
