@@ -1,5 +1,6 @@
 #include "LogSystem.h"
-extern AccSystem acc_system;
+
+FinLog fin_log;
 
 opt_::opt_() = default;
 opt_::opt_(double p, double q) {

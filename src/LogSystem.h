@@ -2,6 +2,7 @@
 #define LOG_SYSTEM
 #include "AccSystem.h"
 
+
 struct opt_ {
     double inc, outc;
     opt_();
@@ -21,5 +22,7 @@ class FinLog {
     void Show(int num);
     void Add(double in, double out);
 };
+
+extern FinLog fin_log;
 
 #endif // LOG_SYSTEM

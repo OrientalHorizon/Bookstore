@@ -1,8 +1,7 @@
+#include "AccSystem.h"
+#include "LogSystem.h"
 #include "BookSystem.h"
 
-AccSystem acc_system;
-FinLog fin_log;
-BookSystem book_system;
 
 signed main() {
     std::string line;

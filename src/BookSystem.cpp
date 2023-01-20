@@ -1,6 +1,6 @@
 #include "BookSystem.h"
-extern AccSystem acc_system;
-extern FinLog fin_log;
+
+BookSystem book_system;
 
 ISBN_::ISBN_() {
     s[0] = '\0';

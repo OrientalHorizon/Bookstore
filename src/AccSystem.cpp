@@ -1,5 +1,7 @@
 #include "AccSystem.h"
 
+AccSystem acc_system;
+
 UserID_::UserID_() = default;
 UserID_::UserID_(const std::string &str) {
     strcpy(s, str.c_str());

@@ -1,6 +1,8 @@
 #ifndef BOOK_SYSTEM
 #define BOOK_SYSTEM
 #include "LogSystem.h"
+#include "AccSystem.h"
+
 
 struct ISBN_ {
     char s[22];
@@ -61,5 +63,7 @@ class BookSystem {
     void Import(const int &num, const double &tot);
     bool InternalCheckIsbn(const std::string &s);
 };
+
+extern BookSystem book_system;
 
 #endif // BOOK_SYSTEM

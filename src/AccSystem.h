@@ -1,6 +1,7 @@
 #ifndef ACC_SYSTEM
 #define ACC_SYSTEM
 #include "UnrolledLinkedList.h"
+#include "utils.h"
 
 struct UserID_ {
     char s[31];
@@ -52,5 +53,6 @@ class AccSystem {
     bool isUser();
 };
 
+extern AccSystem acc_system;
 
 #endif // ACC_SYSTEM
